@@ -1,8 +1,8 @@
 {
   // VS Code / DevSpaces extension recommendations for this workspace.
-  // DevSpaces 3.x auto-installs "recommendations" from Open VSX at startup.
-  // The pinned 8.1.1 VSIX override is in .che/che-theia-plugins.yaml.
+  // Pinned 8.1.1 installs are handled by the devfile postStart event.
   "recommendations": [
-    "redhat.mta-vscode-extension"
+    "redhat.mta-vscode-extension",
+    "redhat.mta-java"
   ]
 }
