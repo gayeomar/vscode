@@ -1,0 +1,11 @@
+# .che/che-theia-plugins.yaml
+# -----------------------------------------------------------------------
+# THIS FILE IS NOT USED by DevSpaces 3.x (che-code / VS Code editor).
+# It was only read by the legacy Che Theia editor (DevSpaces 2.x / Che 7.x).
+#
+# In DevSpaces 3.x, the MTA VS Code extension 8.1.1 is installed
+# automatically via the devfile postStart event (install-mta-vsix command),
+# which calls: code --install-extension <vsix-url>
+#
+# See devfile.yaml → events.postStart for the active configuration.
+# -----------------------------------------------------------------------

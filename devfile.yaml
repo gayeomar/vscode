@@ -339,21 +339,56 @@ commands:
       label: "MTA — install VS Code extensions 8.1.1 (postStart)"
       component: tools
       commandLine: |
-        MTA_VSIX="https://open-vsx.org/api/redhat/mta-vscode-extension/8.1.1/file/redhat.mta-vscode-extension-8.1.1.vsix"
-        # mta-java: prefer Open VSX; fall back to the local VSIX bundled in the repo
-        MTA_JAVA_VSIX_URL="https://open-vsx.org/api/redhat/mta-java/8.1.1/file/redhat.mta-java-8.1.1.vsix"
-        MTA_JAVA_VSIX_LOCAL="${PROJECT_SOURCE}/redhat.mta-java-8.1.1.vsix"
+        # ------------------------------------------------------------------
+        # Locate the 'code' CLI.
+        # In DevSpaces 3.x (che-code) the binary is injected into the pod
+        # via a shared volume; it may not be in the tools container's PATH.
+        # ------------------------------------------------------------------
+        CODE_BIN=""
+        for candidate in \
+            "$(which code 2>/dev/null)" \
+            /checode/bin/code-oss \
+            /checode/bin/code \
+            /home/user/.vscode-server/bin/*/bin/code; do
+          if [ -x "${candidate}" ]; then
+            CODE_BIN="${candidate}"
+            break
+          fi
+        done
 
-        echo "Installing redhat.mta-vscode-extension 8.1.1..."
-        code --install-extension "${MTA_VSIX}" --force
+        if [ -z "${CODE_BIN}" ]; then
+          echo "ERROR: 'code' binary not found. Extensions will be installed by .che/che-editor.yaml on next workspace restart."
+          exit 0
+        fi
+        echo "Using code binary: ${CODE_BIN}"
+
+        # ------------------------------------------------------------------
+        # redhat.mta-vscode-extension 8.1.1
+        # Download VSIX locally first — 'code --install-extension <URL>'
+        # is unreliable; local path install is always supported.
+        # ------------------------------------------------------------------
+        MTA_VSIX_URL="https://open-vsx.org/api/redhat/mta-vscode-extension/8.1.1/file/redhat.mta-vscode-extension-8.1.1.vsix"
+        MTA_VSIX_LOCAL="/tmp/redhat.mta-vscode-extension-8.1.1.vsix"
+        echo "Downloading redhat.mta-vscode-extension 8.1.1..."
+        curl -fsSL -o "${MTA_VSIX_LOCAL}" "${MTA_VSIX_URL}"
+        "${CODE_BIN}" --install-extension "${MTA_VSIX_LOCAL}" --force
         echo "mta-vscode-extension install exit code: $?"
 
+        # ------------------------------------------------------------------
+        # redhat.mta-java 8.1.1
+        # Prefer the local VSIX bundled in the repo; fall back to Open VSX.
+        # ------------------------------------------------------------------
+        MTA_JAVA_LOCAL="${PROJECT_SOURCE}/redhat.mta-java-8.1.1.vsix"
+        MTA_JAVA_URL="https://open-vsx.org/api/redhat/mta-java/8.1.1/file/redhat.mta-java-8.1.1.vsix"
         echo "Installing redhat.mta-java 8.1.1..."
-        if curl --silent --head --fail "${MTA_JAVA_VSIX_URL}" > /dev/null 2>&1; then
-          code --install-extension "${MTA_JAVA_VSIX_URL}" --force
+        if [ -f "${MTA_JAVA_LOCAL}" ]; then
+          echo "  source: local VSIX (${MTA_JAVA_LOCAL})"
+          "${CODE_BIN}" --install-extension "${MTA_JAVA_LOCAL}" --force
         else
-          echo "Open VSX unreachable — installing from local VSIX: ${MTA_JAVA_VSIX_LOCAL}"
-          code --install-extension "${MTA_JAVA_VSIX_LOCAL}" --force
+          echo "  source: Open VSX (${MTA_JAVA_URL})"
+          MTA_JAVA_TMP="/tmp/redhat.mta-java-8.1.1.vsix"
+          curl -fsSL -o "${MTA_JAVA_TMP}" "${MTA_JAVA_URL}"
+          "${CODE_BIN}" --install-extension "${MTA_JAVA_TMP}" --force
         fi
         echo "mta-java install exit code: $?"
 

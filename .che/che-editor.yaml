@@ -1,0 +1,39 @@
+# .che/che-editor.yaml
+# -----------------------------------------------------------------------
+# DevSpaces 3.x editor configuration (che-code / VS Code).
+#
+# This is the PRIMARY mechanism for auto-installing VS Code extensions
+# in DevSpaces 3.x. It is processed by the DevWorkspace Operator BEFORE
+# the workspace pod starts, so extensions are present the moment the IDE
+# opens — no postStart delay, no missing 'code' binary issues.
+#
+# The postStart command in devfile.yaml (install-mta-vsix) is kept as a
+# belt-and-suspenders fallback in case the registry is unreachable at
+# workspace boot time.
+#
+# How it works:
+#   1. DevSpaces reads this file from the repository root on workspace
+#      creation.
+#   2. The `override.extensions` list is merged with the base che-code
+#      plugin entry from the plugin registry.
+#   3. Each extension VSIX is downloaded and installed into the editor
+#      container before the IDE becomes available to the user.
+#
+# Disconnected / air-gapped clusters:
+#   Replace the open-vsx.org URLs with your internal mirror URLs, e.g.:
+#     https://openvsx.internal.example.com/api/redhat/mta-vscode-extension/...
+#   OR mirror the VSIXs to a Quay/Nexus repository and reference them there.
+# -----------------------------------------------------------------------
+
+id: che-incubator/che-code/latest
+registryUrl: https://eclipse-che.github.io/che-plugin-registry/main/v3
+
+override:
+  extensions:
+    # Migration Toolkit for Applications — core VS Code extension
+    - https://open-vsx.org/api/redhat/mta-vscode-extension/8.1.1/file/redhat.mta-vscode-extension-8.1.1.vsix
+
+    # Migration Toolkit for Applications — Java analysis extension
+    # Served from Open VSX; if unavailable the postStart fallback in
+    # devfile.yaml will install from the local redhat.mta-java-8.1.1.vsix
+    - https://open-vsx.org/api/redhat/mta-java/8.1.1/file/redhat.mta-java-8.1.1.vsix

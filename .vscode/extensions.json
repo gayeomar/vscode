@@ -3,7 +3,6 @@
   // Pinned 8.1.1 installs are handled by the devfile postStart event.
   "recommendations": [
     "redhat.mta-vscode-extension",
-    "redhat.mta-java",
-    "redhat.mta-java-8.1.1.vsix"
+    "redhat.mta-java"
   ]
 }
