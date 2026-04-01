@@ -132,7 +132,7 @@ components:
       # Bind the pull secret created above to this container's image pull
       controller.devfile.io/imagePullSecrets: rh-registry-pull-secret
     container:
-      image: registry.redhat.io/devspaces/udi-rhel9:3.27
+      image: registry.redhat.io/devspaces/udi-rhel9:latest
       memoryLimit: 4Gi
       memoryRequest: 512Mi
       cpuLimit: "2"
