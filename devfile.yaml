@@ -340,12 +340,21 @@ commands:
       component: tools
       commandLine: |
         MTA_VSIX="https://open-vsx.org/api/redhat/mta-vscode-extension/8.1.1/file/redhat.mta-vscode-extension-8.1.1.vsix"
-        MTA_JAVA_VSIX="https://open-vsx.org/api/redhat/mta-java/8.1.1/file/redhat.mta-java-8.1.1.vsix"
-        echo "Installing MTA VS Code extension 8.1.1..."
+        # mta-java: prefer Open VSX; fall back to the local VSIX bundled in the repo
+        MTA_JAVA_VSIX_URL="https://open-vsx.org/api/redhat/mta-java/8.1.1/file/redhat.mta-java-8.1.1.vsix"
+        MTA_JAVA_VSIX_LOCAL="${PROJECT_SOURCE}/redhat.mta-java-8.1.1.vsix"
+
+        echo "Installing redhat.mta-vscode-extension 8.1.1..."
         code --install-extension "${MTA_VSIX}" --force
         echo "mta-vscode-extension install exit code: $?"
-        echo "Installing MTA Java VS Code extension 8.1.1..."
-        code --install-extension "${MTA_JAVA_VSIX}" --force
+
+        echo "Installing redhat.mta-java 8.1.1..."
+        if curl --silent --head --fail "${MTA_JAVA_VSIX_URL}" > /dev/null 2>&1; then
+          code --install-extension "${MTA_JAVA_VSIX_URL}" --force
+        else
+          echo "Open VSX unreachable — installing from local VSIX: ${MTA_JAVA_VSIX_LOCAL}"
+          code --install-extension "${MTA_JAVA_VSIX_LOCAL}" --force
+        fi
         echo "mta-java install exit code: $?"
 
   # --- MTA analysis ---------------------------------------------------------

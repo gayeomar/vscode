@@ -1,0 +1,113 @@
+[
+  {
+    "_comment": "=================================================================",
+    "_comment2": "openvsx-sync.json — Open VSX mirror / air-gapped sync manifest",
+    "_comment3": "",
+    "_comment4": "Used by the `ovsx` CLI to publish or mirror extensions to a",
+    "_comment5": "private Open VSX registry (e.g. for air-gapped DevSpaces clusters).",
+    "_comment6": "",
+    "_comment7": "Run with:",
+    "_comment8": "  npx ovsx publish <vsix-file> -r <registry-url> -p <token>",
+    "_comment9": "  OR feed to a mirror job:",
+    "_comment10": "  ovsx mirror --extensions openvsx-sync.json -r <registry-url>",
+    "_comment11": "================================================================="
+  },
+
+  {
+    "_section": "---------- Migration Toolkit for Applications (MTA) ----------"
+  },
+  {
+    "id": "redhat.mta-vscode-extension",
+    "version": "8.1.1",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/redhat/mta-vscode-extension/8.1.1/file/redhat.mta-vscode-extension-8.1.1.vsix"
+  },
+  {
+    "id": "redhat.mta-java",
+    "version": "8.1.1",
+    "source": "local",
+    "vsixFile": "./redhat.mta-java-8.1.1.vsix"
+  },
+
+  {
+    "_section": "---------- Java / Spring Boot toolchain ----------"
+  },
+  {
+    "id": "redhat.java",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/redhat/java/latest/file/redhat.java-latest.vsix"
+  },
+  {
+    "id": "vmware.vscode-spring-boot",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/vmware/vscode-spring-boot/latest/file/vmware.vscode-spring-boot-latest.vsix"
+  },
+  {
+    "id": "vscjava.vscode-spring-initializr",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/vscjava/vscode-spring-initializr/latest/file/vscjava.vscode-spring-initializr-latest.vsix"
+  },
+  {
+    "id": "vscjava.vscode-java-debug",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/vscjava/vscode-java-debug/latest/file/vscjava.vscode-java-debug-latest.vsix"
+  },
+  {
+    "id": "vscjava.vscode-java-test",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/vscjava/vscode-java-test/latest/file/vscjava.vscode-java-test-latest.vsix"
+  },
+  {
+    "id": "vscjava.vscode-gradle",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/vscjava/vscode-gradle/latest/file/vscjava.vscode-gradle-latest.vsix"
+  },
+
+  {
+    "_section": "---------- Kubernetes / OpenShift / Service Mesh ----------"
+  },
+  {
+    "id": "redhat.vscode-openshift-connector",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/redhat/vscode-openshift-connector/latest/file/redhat.vscode-openshift-connector-latest.vsix"
+  },
+  {
+    "id": "redhat.vscode-kubernetes-tools",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/redhat/vscode-kubernetes-tools/latest/file/redhat.vscode-kubernetes-tools-latest.vsix"
+  },
+
+  {
+    "_section": "---------- Language support ----------"
+  },
+  {
+    "id": "redhat.vscode-yaml",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/redhat/vscode-yaml/latest/file/redhat.vscode-yaml-latest.vsix"
+  },
+  {
+    "id": "redhat.vscode-xml",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/redhat/vscode-xml/latest/file/redhat.vscode-xml-latest.vsix"
+  },
+
+  {
+    "_section": "---------- Developer productivity ----------"
+  },
+  {
+    "id": "eamodio.gitlens",
+    "version": "latest",
+    "source": "openvsx",
+    "vsixUrl": "https://open-vsx.org/api/eamodio/gitlens/latest/file/eamodio.gitlens-latest.vsix"
+  }
+]
