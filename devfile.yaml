@@ -54,19 +54,11 @@ attributes:
     }
 
   # -------------------------------------------------------------------------
-  # Che/DevSpaces plugin override — pins MTA to exactly 8.1.1 via VSIX URL.
-  # DevSpaces merges this with the extensions.json list; the explicit URL
-  # takes precedence over a registry lookup for the same extension ID.
-  #
-  # Primary source  : Open VSX (public, no auth required)
-  # Fallback source : Konveyor GitHub releases (if Open VSX is unavailable)
+  # NOTE: .che/che-theia-plugins.yaml is intentionally NOT used here.
+  # That file is only read by the legacy Che Theia editor.
+  # DevSpaces 3.x uses che-code (VS Code) — extensions are installed via
+  # the postStart event command below (install-mta-vsix).
   # -------------------------------------------------------------------------
-  .che/che-theia-plugins.yaml: |
-    - id: redhat/mta-vscode-extension/8.1.1
-      override: true
-      vsix: "https://open-vsx.org/api/redhat/mta-vscode-extension/8.1.1/file/redhat.mta-vscode-extension-8.1.1.vsix"
-      # Fallback (comment-in if Open VSX is unreachable from your cluster):
-      # vsix: "https://github.com/konveyor/editor-extensions/releases/download/v8.1.1/mta-vscode-extension-8.1.1.vsix"
 
 # ---------------------------------------------------------------------------
 # Components
@@ -336,6 +328,21 @@ commands:
         echo "=== Checking 2/2 READY (app + Envoy sidecar) ==="
         oc get pods -n microservices -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].ready}{"\n"}{end}'
 
+  # --- MTA VS Code extension install (postStart) ----------------------------
+  # che-code (DevSpaces 3.x) exposes the `code` CLI to all containers in the
+  # workspace pod via a shared volume. `code --install-extension <vsix-url>`
+  # is the only reliable way to auto-install a pinned version at startup.
+  # This command is wired into the events.postStart section below.
+  - id: install-mta-vsix
+    exec:
+      label: "MTA — install VS Code extension 8.1.1 (postStart)"
+      component: tools
+      commandLine: |
+        MTA_VSIX="https://open-vsx.org/api/redhat/mta-vscode-extension/8.1.1/file/redhat.mta-vscode-extension-8.1.1.vsix"
+        echo "Installing MTA VS Code extension 8.1.1..."
+        code --install-extension "${MTA_VSIX}" --force
+        echo "MTA extension install exit code: $?"
+
   # --- MTA analysis ---------------------------------------------------------
   - id: mta-install-cli
     exec:
@@ -350,3 +357,13 @@ commands:
         curl -fsSL -o /home/user/.mta/mta-cli "${MTA_URL}"
         chmod +x /home/user/.mta/mta-cli
         /home/user/.mta/mta-cli version
+
+# ---------------------------------------------------------------------------
+# Events
+# Devfile v2 lifecycle hooks processed by the DevWorkspace Operator.
+# postStart commands run automatically every time the workspace starts,
+# before the IDE becomes available to the user.
+# ---------------------------------------------------------------------------
+events:
+  postStart:
+    - install-mta-vsix   # installs MTA VS Code extension 8.1.1 via code CLI
