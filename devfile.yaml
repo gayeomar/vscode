@@ -2,8 +2,8 @@
 # Targets: Red Hat OpenShift DevSpaces 3.x (che-code / VS Code editor)
 #
 # Bundled tooling
-#   - Universal Developer Image (UDI) with Java 21, Gradle wrapper support,
-#     Maven, Node, oc/kubectl CLIs already included
+#   - Universal Developer Image (UDI) udi-rhel9:3.27 with Java 21, Gradle wrapper
+#     support, Maven, Node, oc/kubectl CLIs already included
 #   - Migration Toolkit for Applications (MTA) VS Code extension 8.1.1
 #     installed from Open VSX (pinned VSIX)
 #
@@ -74,17 +74,65 @@ attributes:
 components:
 
   # -------------------------------------------------------------------------
+  # Pull secret for registry.redhat.io (OPTION 1 — recommended)
+  #
+  # This kubernetes component creates (or updates) the pull secret in the
+  # workspace namespace at DevWorkspace startup. The DevWorkspace Operator
+  # applies it before the workspace pod is scheduled, so the kubelet can
+  # authenticate to registry.redhat.io when pulling udi-rhel9:3.27.
+  #
+  # HOW TO USE:
+  #   1. Base64-encode your Red Hat pull secret JSON (from
+  #      https://console.redhat.com/openshift/install/pull-secret):
+  #        cat pull-secret.txt | base64 -w0
+  #   2. Replace REPLACE_WITH_BASE64_PULL_SECRET below with that value.
+  #   3. ⚠ Do NOT commit the filled-in value to git.
+  #      Use a Secret sealing tool (Sealed Secrets / Vault) for GitOps, or
+  #      pre-create the secret via option 2 (oc CLI) and remove this block.
+  #
+  # OPTION 2 — pre-create via oc (secret stays out of the devfile entirely):
+  #   oc create secret docker-registry rh-registry-pull-secret \
+  #     --docker-server=registry.redhat.io \
+  #     --docker-username=<your-rh-username> \
+  #     --docker-password=<your-rh-token-or-password> \
+  #     -n <your-devspaces-user-namespace>
+  #   oc secrets link default rh-registry-pull-secret --for=pull \
+  #     -n <your-devspaces-user-namespace>
+  #
+  # OPTION 3 — switch to the public UBI9+Java21 image (no pull secret needed):
+  #   Replace the tools container image with:
+  #     registry.access.redhat.com/ubi9/openjdk-21:latest
+  #   Note: oc, kubectl, Helm, Tekton CLI will not be pre-installed.
+  # -------------------------------------------------------------------------
+  - name: rh-registry-pull-secret
+    kubernetes:
+      inlined: |
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: rh-registry-pull-secret
+          labels:
+            # Tells DevWorkspace Operator to watch and mount this secret
+            controller.devfile.io/watch-secret: "true"
+        type: kubernetes.io/dockerconfigjson
+        data:
+          .dockerconfigjson: eyJhdXRocyI6eyJjbG91ZC5vcGVuc2hpZnQuY29tIjp7ImF1dGgiOiJiM0JsYm5Ob2FXWjBMWEpsYkdWaGMyVXRaR1YySzI5amJWOWhZMk5sYzNOZk16TmxNMkkxTlRSbVkyVm1ORFJoWkRoa1pXUTFOR1prTWpRM01EWTFNak02TTFGYVdFWlpRVFpKTTAwMVZUQllRa1kzTVVsRlFqbFJUVEl6UjFOWlFURmFVbFZJU2s5Q1FUQXlRMXBIVVZaVU1sRk1VRXRLV1ZCTVMxaFdRak0zU0E9PSIsImVtYWlsIjoib21hckBkZWd1ZW5lLmNvbSJ9LCJxdWF5LmlvIjp7ImF1dGgiOiJiM0JsYm5Ob2FXWjBMWEpsYkdWaGMyVXRaR1YySzI5amJWOWhZMk5sYzNOZk16TmxNMkkxTlRSbVkyVm1ORFJoWkRoa1pXUTFOR1prTWpRM01EWTFNak02TTFGYVdFWlpRVFpKTTAwMVZUQllRa1kzTVVsRlFqbFJUVEl6UjFOWlFURmFVbFZJU2s5Q1FUQXlRMXBIVVZaVU1sRk1VRXRLV1ZCTVMxaFdRak0zU0E9PSIsImVtYWlsIjoib21hckBkZWd1ZW5lLmNvbSJ9LCJyZWdpc3RyeS5jb25uZWN0LnJlZGhhdC5jb20iOnsiYXV0aCI6ImZIVm9ZeTF3YjI5c0xXUTFOV0pqTm1FMUxXTTNaRFl0TkRKbFlTMWhaalJoTFRVMFptVTFPR1UzWWpBd1pUcGxlVXBvWWtkamFVOXBTbE5WZWxWNFRXbEtPUzVsZVVwNlpGZEphVTlwU1hsTmJVVjRUVVJhYUU1RVZUQk5WMFV3VGpKTk1GbFhXbXBPUjA1c1RYcFNhVTlIU1RWT1ZHeG9XVk5LT1M1amFWSnBRWGhMVDJSM1FXOXJUMGRuVURsaFgwMVVOWFpaZUZOUFdtRnZVVzFsV0dJelMwWm1ObU40TnpodVNVOU1ZM0l0VmpGVmFYUTJOSEl0VEdOdGRVZE1iVVJmYld0aWMxTkllRUpCU0VOTVNXOHdRelp6ZFc0M2QxTm9aRFZpUjBrMlREQkdWMjFaT0hWQ1REYzFWWEJXWHpSR2MwTXdaVE5tZG5BMk9HUnhhbTVCTW5SUFkyMXNlVjk1UnkxdVJIVmxhR2RPTTI5U1VqUmxjbFpRVmtWZmJUaHJOVkJRY0V4M1UxRTRTVlZKTUdkQ2JIZDBVVjgwVHpGbFltMDNTV2RETW1wNk9XaGthVjkxWmxCU1pXVXhOMnBtTm1GT1YzSkROM1F6YVhveFVVeFNUMTgyVFRkSlVVUnNhSFJpT0VFM1RrOVlURTVwWVVGeVdXbHJhMVZhVWt0d2JGQjFObEJ3VkRsalJ6UkthbTVGWW1OTk5tdEtkVlJ2Vm10M2JrVlFRa2haV0VWcmEzcE5Vek5VZFRLT2JqZG9USEJSWXpKMGQyVlVNbDl5TkdwTlFYcHFhWGw1ZW1GUVZHNXpiRWh1Tm5abVlrcG5XRXN0WVdORE0wTXpRbVEyU25oUVUxZFRiMDVpYjBRNWQxOXdiWHB3U1U5b1RIWmhNRmh4TlVkaGNVNVllV1I2ZWpKNU5VaFdXbnBCWHkxM2EzSlZjMk0wZDNObFNubEdXa1k0WVRaVGIyMDNUblpHVFVscU5VUkhOVVp3YVRCRk1VdE5kVzlrUTJsTE9WbGFNbmRGYVVWRlVUTjFaMHhTTlUxV2RYbHlOMUZvYVdkcU1YaGFWRmh1VVZOblFXbGlXblowV1RkaVIyaEVibTA0UlhkeFNXNW1hV05vVmxkRVQybEliRnBKTTA1WGFIQk9NekJzY0RoNk5VZHdkMDF5ZVhCYVlWRldZM3BOUlZCQ1ltd3plREUzYnpKbFZGQkNWVzFTYlVveFREUTBVemN0YjFwMmR6WlFObWxNYVRGYWNXNVFSbk4yVWs1SmVtUlNkbGs0Ukd0dVVYUXRibGhpYVd4ck5IYzVVbUo0WkdkMk1uTmhSMVU0YldjeVJsaGxabHBwTTNKeFpUaGpSM293V0hCMGVYTTBhVjgwUVV0UldtUkxRWEUyTFZWNlJrcHhjV3M0UlUxM2EwMXZlRE5QZHc9PSIsImVtYWlsIjoib21hckBkZWd1ZW5lLmNvbSJ9LCJyZWdpc3RyeS5yZWRoYXQuaW8iOnsiYXV0aCI6ImZIVm9ZeTF3YjI5c0xXUTFOV0pqTm1FMUxXTTNaRFl0TkRKbFlTMWhaalJoTFRVMFptVTFPR1UzWWpBd1pUcGxlVXBvWWtkamFVOXBTbE5WZWxWNFRXbEtPUzVsZVVwNlpGZEphVTlwU1hsTmJVVjRUVVJhYUU1RVZUQk5WMFV3VGpKTk1GbFhXbXBPUjA1c1RYcFNhVTlIU1RWT1ZHeG9XVk5LT1M1amFWSnBRWGhMVDJSM1FXOXJUMGRuVURsaFgwMVVOWFpaZUZOUFdtRnZVVzFsV0dJelMwWm1ObU40TnpodVNVOU1ZM0l0VmpGVmFYUTJOSEl0VEdOdGRVZE1iVVJmYld0aWMxTkllRUpCU0VOTVNXOHdRelp6ZFc0M2QxTm9aRFZpUjBrMlREQkdWMjFaT0hWQ1REYzFWWEJXWHpSR2MwTXdaVE5tZG5BMk9HUnhhbTVCTW5SUFkyMXNlVjk1UnkxdVJIVmxhR2RPTTI5U1VqUmxjbFpRVmtWZmJUaHJOVkJRY0V4M1UxRTRTVlZKTUdkQ2JIZDBVVjgwVHpGbFltMDNTV2RETW1wNk9XaGthVjkxWmxCU1pXVXhOMnBtTm1GT1YzSkROM1F6YVhveFVVeFNUMTgyVFRkSlVVUnNhSFJpT0VFM1RrOVlURTVwWVVGeVdXbHJhMVZhVWt0d2JGQjFObEJ3VkRsalJ6UkthbTVGWW1OTk5tdEtkVlJ2Vm10M2JrVlFRa2haV0VWcmEzcE5Vek5VZFRLT2JqZG9USEJSWXpKMGQyVlVNbDl5TkdwTlFYcHFhWGw1ZW1GUVZHNXpiRWh1Tm5abVlrcG5XRXN0WVdORE0wTXpRbVEyU25oUVUxZFRiMDVpYjBRNWQxOXdiWHB3U1U5b1RIWmhNRmh4TlVkaGNVNVllV1I2ZWpKNU5VaFdXbnBCWHkxM2EzSlZjMk0wZDNObFNubEdXa1k0WVRaVGIyMDNUblpHVFVscU5VUkhOVVp3YVRCRk1VdE5kVzlrUTJsTE9WbGFNbmRGYVVWRlVUTjFaMHhTTlUxV2RYbHlOMUZvYVdkcU1YaGFWRmh1VVZOblFXbGlXblowV1RkaVIyaEVibTA0UlhkeFNXNW1hV05vVmxkRVQybEliRnBKTTA1WGFIQk9NekJzY0RoNk5VZHdkMDF5ZVhCYVlWRldZM3BOUlZCQ1ltd3plREUzYnpKbFZGQkNWVzFTYlVveFREUTBVemN0YjFwMmR6WlFObWxNYVRGYWNXNVFSbk4yVWs1SmVtUlNkbGs0Ukd0dVVYUXRibGhpYVd4ck5IYzVVbUo0WkdkMk1uTmhSMVU0YldjeVJsaGxabHBwTTNKeFpUaGpSM293V0hCMGVYTTBhVjgwUVV0UldtUkxRWEUyTFZWNlJrcHhjV3M0UlUxM2EwMXZlRE5QZHc9PSIsImVtYWlsIjoib21hckBkZWd1ZW5lLmNvbSJ9fX0K
+
+  # -------------------------------------------------------------------------
   # Main developer container
   # Image: Red Hat Universal Developer Image (UDI) for RHEL 9
   #   Includes: Java 11/17/21, Maven, Gradle wrapper, Node 18, Git,
   #             oc, kubectl, Helm, Tekton CLI, jq, yq, vim, bash-completion
   # If your cluster uses a disconnected registry, replace the image reference
   # with your internal mirror, e.g.:
-  #   registry.internal.example.com/devspaces/udi-rhel9:3.x
+  #   registry.internal.example.com/devspaces/udi-rhel9:3.27
   # -------------------------------------------------------------------------
   - name: tools
+    attributes:
+      # Bind the pull secret created above to this container's image pull
+      controller.devfile.io/imagePullSecrets: rh-registry-pull-secret
     container:
-      image: registry.redhat.io/devspaces/udi-rhel9:3.x
+      image: registry.redhat.io/devspaces/udi-rhel9:3.27
       memoryLimit: 4Gi
       memoryRequest: 512Mi
       cpuLimit: "2"
