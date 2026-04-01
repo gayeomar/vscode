@@ -1,0 +1,304 @@
+# OpenShift DevSpaces 3.x devfile (devfile spec v2.2.0)
+# Targets: Red Hat OpenShift DevSpaces 3.x (che-code / VS Code editor)
+#
+# Bundled tooling
+#   - Universal Developer Image (UDI) with Java 21, Gradle wrapper support,
+#     Maven, Node, oc/kubectl CLIs already included
+#   - Migration Toolkit for Applications (MTA) VS Code extension 8.1.1
+#     installed from Open VSX (pinned VSIX)
+#
+# Extension install mechanism
+#   DevSpaces 3.x reads .vscode/extensions.json from the workspace root and
+#   installs each listed extension from the configured Open VSX registry.
+#   For a pinned release the VSIX URI is embedded directly in the
+#   .che/che-theia-plugins.yaml side-file (see below).
+# ---------------------------------------------------------------------------
+
+schemaVersion: 2.2.0
+
+metadata:
+  name: microservices-mta
+  displayName: Spring Boot Microservices + MTA 8.1.1
+  description: >
+    Development environment for the three-service Spring Boot call chain
+    deployed on OpenShift Service Mesh 3.2 (Sail Operator / Istio).
+    Includes Migration Toolkit for Applications VS Code extension 8.1.1
+    for application modernisation analysis.
+  version: 1.0.0
+  tags:
+    - Java
+    - Spring Boot
+    - Gradle
+    - OpenShift
+    - OSSM
+    - MTA
+
+# ---------------------------------------------------------------------------
+# Top-level attributes
+# ---------------------------------------------------------------------------
+attributes:
+  # Storage: one PVC per workspace (default, keeps Gradle cache across restarts)
+  controller.devfile.io/storage-type: per-workspace
+
+  # -------------------------------------------------------------------------
+  # VS Code extension manifest
+  # DevSpaces reads this file and auto-installs all "recommendations" at
+  # workspace startup from the configured Open VSX registry.
+  # The MTA extension ID on Open VSX is: redhat.mta-vscode-extension
+  # -------------------------------------------------------------------------
+  .vscode/extensions.json: |
+    {
+      "recommendations": [
+        "redhat.mta-vscode-extension"
+      ]
+    }
+
+  # -------------------------------------------------------------------------
+  # Che/DevSpaces plugin override — pins MTA to exactly 8.1.1 via VSIX URL.
+  # DevSpaces merges this with the extensions.json list; the explicit URL
+  # takes precedence over a registry lookup for the same extension ID.
+  #
+  # Primary source  : Open VSX (public, no auth required)
+  # Fallback source : Konveyor GitHub releases (if Open VSX is unavailable)
+  # -------------------------------------------------------------------------
+  .che/che-theia-plugins.yaml: |
+    - id: redhat/mta-vscode-extension/8.1.1
+      override: true
+      vsix: "https://open-vsx.org/api/redhat/mta-vscode-extension/8.1.1/file/redhat.mta-vscode-extension-8.1.1.vsix"
+      # Fallback (comment-in if Open VSX is unreachable from your cluster):
+      # vsix: "https://github.com/konveyor/editor-extensions/releases/download/v8.1.1/mta-vscode-extension-8.1.1.vsix"
+
+# ---------------------------------------------------------------------------
+# Components
+# ---------------------------------------------------------------------------
+components:
+
+  # -------------------------------------------------------------------------
+  # Main developer container
+  # Image: Red Hat Universal Developer Image (UDI) for RHEL 9
+  #   Includes: Java 11/17/21, Maven, Gradle wrapper, Node 18, Git,
+  #             oc, kubectl, Helm, Tekton CLI, jq, yq, vim, bash-completion
+  # If your cluster uses a disconnected registry, replace the image reference
+  # with your internal mirror, e.g.:
+  #   registry.internal.example.com/devspaces/udi-rhel9:3.x
+  # -------------------------------------------------------------------------
+  - name: tools
+    container:
+      image: registry.redhat.io/devspaces/udi-rhel9:3.x
+      memoryLimit: 4Gi
+      memoryRequest: 512Mi
+      cpuLimit: "2"
+      cpuRequest: 250m
+      mountSources: true
+
+      env:
+        # Pin the active JDK to 21 (UDI ships multiple versions)
+        - name: JAVA_HOME
+          value: /usr/lib/jvm/java-21-openjdk
+        - name: PATH
+          value: /usr/lib/jvm/java-21-openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        # Keep Gradle cache on the persistent volume across restarts
+        - name: GRADLE_USER_HOME
+          value: /home/user/.gradle
+        # MTA CLI (mta-cli) location — used by the VS Code extension
+        - name: MTA_CLI_PATH
+          value: /home/user/.mta/mta-cli
+
+      volumeMounts:
+        - name: gradle-cache
+          path: /home/user/.gradle
+        # Optional: cache MTA analyses between workspace restarts
+        - name: mta-data
+          path: /home/user/.mta
+
+      endpoints:
+        # service1 — exposed externally for smoke-testing via the IDE browser
+        - name: service1
+          targetPort: 8080
+          exposure: public
+          protocol: http
+          attributes:
+            discoverable: "true"
+            urlRewriteSupported: "true"
+        # service2 — mesh-internal; accessible within the workspace only
+        - name: service2
+          targetPort: 8081
+          exposure: internal
+          protocol: http
+        # service3 — mesh-internal; accessible within the workspace only
+        - name: service3
+          targetPort: 8082
+          exposure: internal
+          protocol: http
+        # Spring Boot Actuator — shared debug port for all three services
+        - name: actuator
+          targetPort: 8090
+          exposure: internal
+          protocol: http
+
+  # -------------------------------------------------------------------------
+  # Persistent volumes
+  # -------------------------------------------------------------------------
+  - name: gradle-cache
+    volume:
+      size: 2Gi
+
+  - name: mta-data
+    volume:
+      size: 1Gi
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+commands:
+
+  # --- Build ----------------------------------------------------------------
+  - id: build-all
+    exec:
+      label: "Build — all services"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: "./gradlew clean build"
+      group:
+        kind: build
+        isDefault: true
+
+  - id: build-service1
+    exec:
+      label: "Build — service1 only"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: "./gradlew :service1:clean :service1:build"
+      group:
+        kind: build
+
+  - id: build-service2
+    exec:
+      label: "Build — service2 only"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: "./gradlew :service2:clean :service2:build"
+      group:
+        kind: build
+
+  - id: build-service3
+    exec:
+      label: "Build — service3 only"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: "./gradlew :service3:clean :service3:build"
+      group:
+        kind: build
+
+  # --- Test -----------------------------------------------------------------
+  - id: test-all
+    exec:
+      label: "Test — all services"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: "./gradlew test"
+      group:
+        kind: test
+        isDefault: true
+
+  # --- Run (local profile) --------------------------------------------------
+  - id: run-service1
+    exec:
+      label: "Run — service1 (local profile, port 8080)"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: >-
+        ./gradlew :service1:bootRun
+        --args='--spring.profiles.active=local --server.port=8080'
+      group:
+        kind: run
+
+  - id: run-service2
+    exec:
+      label: "Run — service2 (local profile, port 8081)"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: >-
+        ./gradlew :service2:bootRun
+        --args='--spring.profiles.active=local --server.port=8081'
+      group:
+        kind: run
+
+  - id: run-service3
+    exec:
+      label: "Run — service3 (local profile, port 8082)"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: >-
+        ./gradlew :service3:bootRun
+        --args='--spring.profiles.active=local --server.port=8082'
+      group:
+        kind: run
+
+  # --- OpenShift deployment -------------------------------------------------
+  - id: oc-apply-mesh
+    exec:
+      label: "OC — apply service-mesh CRs (IstioCNI + Istio + PeerAuth)"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: |
+        oc apply -f openshift/service-mesh/istiocni.yaml
+        oc apply -f openshift/service-mesh/istio.yaml
+        oc wait istio/default --for condition=Ready --timeout=300s
+        oc apply -f openshift/service-mesh/peer-authentication.yaml
+      group:
+        kind: deploy
+
+  - id: oc-apply-gateway
+    exec:
+      label: "OC — apply Gateway API resources"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: |
+        oc apply -f openshift/gateway-api/gateway-class.yaml
+        oc apply -f openshift/gateway-api/gateway.yaml
+        oc apply -f openshift/gateway-api/httproute-service1.yaml
+      group:
+        kind: deploy
+
+  - id: oc-apply-services
+    exec:
+      label: "OC — deploy all application services"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: |
+        for svc in service1 service2 service3; do
+          oc apply -f openshift/${svc}/
+        done
+        oc rollout status deployment/service1 -n microservices --timeout=120s
+        oc rollout status deployment/service2 -n microservices --timeout=120s
+        oc rollout status deployment/service3 -n microservices --timeout=120s
+      group:
+        kind: deploy
+
+  - id: oc-verify-sidecars
+    exec:
+      label: "OC — verify Envoy sidecar injection (2/2 READY)"
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: |
+        echo "=== Pods in microservices namespace ==="
+        oc get pods -n microservices
+        echo ""
+        echo "=== Checking 2/2 READY (app + Envoy sidecar) ==="
+        oc get pods -n microservices -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].ready}{"\n"}{end}'
+
+  # --- MTA analysis ---------------------------------------------------------
+  - id: mta-install-cli
+    exec:
+      label: "MTA — download mta-cli 8.1.1 (used by VS Code extension)"
+      component: tools
+      workingDir: /home/user
+      commandLine: |
+        mkdir -p /home/user/.mta
+        MTA_VERSION=8.1.1
+        MTA_URL="https://github.com/konveyor/tackle2-addon-analyzer/releases/download/v${MTA_VERSION}/mta-cli-linux-amd64"
+        echo "Downloading mta-cli ${MTA_VERSION}..."
+        curl -fsSL -o /home/user/.mta/mta-cli "${MTA_URL}"
+        chmod +x /home/user/.mta/mta-cli
+        /home/user/.mta/mta-cli version
